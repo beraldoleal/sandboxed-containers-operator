@@ -135,6 +135,7 @@ endif
 .PHONY: build
 build: generate fmt vet ## Build manager binary.
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -mod=mod -o bin/manager main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -mod=mod -o bin/metrics-server cmd/metrics/metrics.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.

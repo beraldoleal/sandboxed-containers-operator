@@ -15,6 +15,7 @@ COPY main.go main.go
 COPY api api/
 COPY config config/
 COPY controllers controllers/
+COPY cmd cmd/
 
 RUN go mod download
 # needed for docker build but not for local builds
@@ -27,6 +28,7 @@ FROM ${TARGET_IMAGE}
 WORKDIR /
 COPY --from=builder /workspace/bin/manager .
 COPY --from=builder /workspace/config/peerpods /config/peerpods
+COPY --from=builder /workspace/bin/metrics-server .
 
 RUN useradd  -r -u 499 nonroot
 RUN getent group nonroot || groupadd -o -g 499 nonroot
