@@ -990,7 +990,7 @@ func (r *KataConfigOpenShiftReconciler) createDaemonsetForMonitor() error {
 	return nil
 }
 
-func (r *KataConfigOpenShiftReconciler) createRuntimeClass(runtimeClassName string, cpuOverhead string, memoryOverhead string) error {
+func (r *KataConfigOpenShiftReconciler) createRuntimeClass(runtimeClassName string, cpuOverhead string, memoryOverhead string, handler string, additionalNodeLabel string) error {
 
 	rc := func() *nodeapi.RuntimeClass {
 		rc := &nodeapi.RuntimeClass{
@@ -1001,7 +1001,7 @@ func (r *KataConfigOpenShiftReconciler) createRuntimeClass(runtimeClassName stri
 			ObjectMeta: metav1.ObjectMeta{
 				Name: runtimeClassName,
 			},
-			Handler: runtimeClassName,
+			Handler: handler,
 			Overhead: &nodeapi.Overhead{
 				PodFixed: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse(cpuOverhead),
@@ -1011,6 +1011,11 @@ func (r *KataConfigOpenShiftReconciler) createRuntimeClass(runtimeClassName stri
 		}
 
 		nodeSelector := r.getNodeSelectorAsMap()
+
+		// Add additional node label if provided
+		if additionalNodeLabel != "" {
+			nodeSelector[additionalNodeLabel] = "true"
+		}
 
 		rc.Scheduling = &nodeapi.Scheduling{
 			NodeSelector: nodeSelector,
@@ -2438,7 +2443,7 @@ func (r *KataConfigOpenShiftReconciler) enablePeerPodsMiscConfigs() error {
 	}
 
 	// Create runtimeClass config for peer-pods
-	err = r.createRuntimeClass(peerpodsRuntimeClassName, peerpodsRuntimeClassCpuOverhead, peerpodsRuntimeClassMemOverhead)
+	err = r.createRuntimeClass(peerpodsRuntimeClassName, peerpodsRuntimeClassCpuOverhead, peerpodsRuntimeClassMemOverhead, peerpodsRuntimeClassName, "")
 	if err != nil {
 		r.Log.Info("Error in creating kata remote runtimeclass", "err", err)
 		return err
@@ -2640,7 +2645,7 @@ func (r *KataConfigOpenShiftReconciler) deleteScc() error {
 func (r *KataConfigOpenShiftReconciler) postKataInstallation() (*ctrl.Result, error) {
 	r.Log.Info("create runtime class")
 	r.resetInProgressCondition()
-	err := r.createRuntimeClass(kataRuntimeClassName, kataRuntimeClassCpuOverhead, kataRuntimeClassMemOverhead)
+	err := r.createRuntimeClass(kataRuntimeClassName, kataRuntimeClassCpuOverhead, kataRuntimeClassMemOverhead, kataRuntimeClassName, "")
 	if err != nil {
 		return &ctrl.Result{Requeue: true, RequeueAfter: 15 * time.Second}, err
 	}
