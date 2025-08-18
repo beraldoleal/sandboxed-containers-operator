@@ -1052,6 +1052,34 @@ func (r *KataConfigOpenShiftReconciler) createRuntimeClass(runtimeClassName stri
 	return nil
 }
 
+func (r *KataConfigOpenShiftReconciler) deleteRuntimeClass(runtimeClassName string) error {
+
+	foundRc := &nodeapi.RuntimeClass{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: runtimeClassName}, foundRc)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	if err := r.Client.Delete(context.TODO(), foundRc); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	for i, name := range r.kataConfig.Status.RuntimeClasses {
+		if name == runtimeClassName {
+			r.kataConfig.Status.RuntimeClasses = append(r.kataConfig.Status.RuntimeClasses[:i], r.kataConfig.Status.RuntimeClasses[i+1:]...)
+			break
+		}
+	}
+
+	return nil
+}
+
 // "KataConfigNodeSelector" in the names of the following couple of helper
 // functions refers to the value of KataConfig.spec.kataConfigPoolSelector,
 // i.e. the original selector supplied by the user of KataConfig.
@@ -1425,6 +1453,33 @@ func (r *KataConfigOpenShiftReconciler) processKataConfigInstallRequest() (ctrl.
 		r.Log.Info("Waiting for MachineConfigPool to be fully updated", "machinePool", machinePool)
 	}
 	return ctrl.Result{}, nil
+}
+
+// Delete runtime class
+func (r *KataConfigOpenShiftReconciler) deletRuntimeClass(runtimeClassName string) error {
+	rc := &nodeapi.RuntimeClass{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "node.k8s.io/v1",
+			Kind:       "RuntimeClass",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: runtimeClassName,
+		},
+	}
+
+	err := r.Client.Delete(context.TODO(), rc)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			r.Log.Info("RuntimeClass was already deleted", "runtimeClass", runtimeClassName)
+		} else {
+			r.Log.Error(err, "error when deleting RuntimeClass", "runtimeClass", runtimeClassName)
+			return err
+		}
+	} else {
+		r.Log.Info("Successfully deleted RuntimeClass", "runtimeClass", runtimeClassName)
+	}
+
+	return nil
 }
 
 // If the first return value is 'true' it means that the MC was just created
